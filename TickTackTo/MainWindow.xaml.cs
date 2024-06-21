@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -33,15 +34,20 @@ namespace TickTackTo
         private string playerSymbol;
         private string roomId;
         private WebSocket webSocket;
+        private bool gamerunning = false;
 
         public MainWindow()
         {
             InitializeComponent();
-            ResetBoard();
+            UpdateSettingsVisibility();
         }
 
         private void ResetBoard()
         {
+            if(gamerunning)
+            {
+                return;
+            }
             for (int i = 0; i < board.Length; i++)
             {
                 board[i] = string.Empty;
@@ -50,16 +56,15 @@ namespace TickTackTo
                 button.IsEnabled = true;
             }
             isXNext = true;
-            //UpdateCurrentPlayerText();
         }
 
         private void Button_Click(object sender, RoutedEventArgs e)
         {
             var button = sender as Button;
             int index = int.Parse(button.Name.Replace("Button", string.Empty));
-
             if (board[index] == string.Empty)
             {
+                DisableSettings();
                 if (isOnlineMultiplayer)
                 {
                     if (playerSymbol == (isXNext ? "X" : "O"))
@@ -84,12 +89,16 @@ namespace TickTackTo
             if (CheckForWinner())
             {
                 MessageBox.Show($"{board[index]} hat gewonnen!");
+                gamerunning = false;
                 ResetBoard();
+                EnableSettings();
             }
             else if (CheckForDraw())
             {
                 MessageBox.Show("Unentschieden");
+                gamerunning = false;
                 ResetBoard();
+                EnableSettings();
             }
             else
             {
@@ -257,7 +266,10 @@ namespace TickTackTo
         {
             isSingleplayer = SingleplayerOption.IsChecked == true;
             isOnlineMultiplayer = OnlineMultiplayerOption.IsChecked == true;
-            ResetBoard();
+            if(!isSingleplayer)
+            {
+                ResetBoard();
+            }
             UpdateSettingsVisibility();
         }
 
@@ -266,7 +278,12 @@ namespace TickTackTo
             var comboBox = sender as System.Windows.Controls.ComboBox;
             var selectedItem = comboBox.SelectedItem as System.Windows.Controls.ComboBoxItem;
             difficultyLevel = (DifficultyLevel)selectedItem.Tag;
-            ResetBoard();
+            if(isSingleplayer )
+            {
+                ResetBoard();
+                gamerunning = true;
+            }
+            
         }
 
         private void UpdateSettingsVisibility()
@@ -282,9 +299,15 @@ namespace TickTackTo
 
         private void CreateOnlineGame_Click(object sender, RoutedEventArgs e)
         {
-            webSocket = new WebSocket("ws://localhost:8080");
+            webSocket = new WebSocket("ws://91.107.203.9:2000");
             webSocket.Opened += (s, ev) => {
                 webSocket.Send("{\"type\":\"create\"}");
+            };
+            webSocket.Error += (s, ev) => {
+                Console.WriteLine($"WebSocket error: {ev.Exception}");
+            };
+            webSocket.Closed += (s, ev) => {
+                Console.WriteLine("WebSocket closed");
             };
             webSocket.MessageReceived += WebSocket_MessageReceived;
             webSocket.Open();
@@ -293,12 +316,38 @@ namespace TickTackTo
         private void JoinOnlineGame_Click(object sender, RoutedEventArgs e)
         {
             roomId = RoomIdTextBox.Text;
-            webSocket = new WebSocket("ws://localhost:8080");
+            webSocket = new WebSocket("ws://91.107.203.9:2000");
             webSocket.Opened += (s, ev) => {
                 webSocket.Send($"{{\"type\":\"join\", \"roomId\":\"{roomId}\"}}");
             };
+            webSocket.Error += (s, ev) => {
+                Console.WriteLine($"WebSocket error: {ev.Exception.Message}");
+            };
+            webSocket.Closed += (s, ev) => {
+                Console.WriteLine("WebSocket closed");
+            };
             webSocket.MessageReceived += WebSocket_MessageReceived;
             webSocket.Open();
+        }
+
+        private void ResetGame_Click(object sender, RoutedEventArgs e)
+        {
+            if (isOnlineMultiplayer)
+            {
+                webSocket.Send($"{{\"type\":\"reset\", \"roomId\":\"{roomId}\"}}");
+            }
+            ResetBoard();
+            HideEndGameOptions();
+            DisableSettings();
+        }
+
+        private void NewGame_Click(object sender, RoutedEventArgs e)
+        {
+            if (isOnlineMultiplayer)
+            {
+                webSocket.Send("{\"type\":\"new_room\"}");
+            }
+            ResetBoard();
         }
 
         private void WebSocket_MessageReceived(object sender, MessageReceivedEventArgs e)
@@ -309,19 +358,25 @@ namespace TickTackTo
             {
                 case "created":
                     roomId = (string)data.roomId;
-                    Dispatcher.Invoke(() => {
+                    Dispatcher.Invoke(() =>
+                    {
+                        ResetBoard();
                         RoomIdTextBox.Text = roomId;
                         MessageBox.Show($"Spiel erstellt. Raum-ID: {roomId}");
                     });
                     break;
                 case "joined":
-                    Dispatcher.Invoke(() => MessageBox.Show("Spiel beigetreten."));
+                    Dispatcher.Invoke(() =>
+                    {
+                        ResetBoard();
+                        MessageBox.Show("Spiel beigetreten.");
+                    });
                     break;
                 case "start":
-                    Console.WriteLine("Game started");
                     playerSymbol = (string)data.symbol;
                     Dispatcher.Invoke(() => {
-                        PlayerSymbolText.Text = $"Dein Symbole: {playerSymbol}";
+                        gamerunning = true;
+                        PlayerSymbolText.Text = $"Dein Symbol: {playerSymbol}";
                         PlayerSymbolText.Visibility = Visibility.Visible;
                         UpdateCurrentPlayerText();
                     });
@@ -329,7 +384,6 @@ namespace TickTackTo
                 case "move":
                     int index = (int)data.index;
                     string symbol = (string)data.symbol;
-                    Console.WriteLine("Move erhalten von "+symbol+" eigenes Symbol "+playerSymbol);
                     Dispatcher.Invoke(() => {
                         board[index] = symbol;
                         var button = FindName("Button" + index) as Button;
@@ -338,13 +392,17 @@ namespace TickTackTo
 
                         if (CheckForWinner())
                         {
+                            gamerunning = false;
                             MessageBox.Show($"{symbol} hat gewonnen!");
                             ResetBoard();
+                            ShowEndGameOptions();
                         }
                         else if (CheckForDraw())
                         {
+                            gamerunning = false;
                             MessageBox.Show("Unentschieden");
                             ResetBoard();
+                            ShowEndGameOptions();
                         }
                         else
                         {
@@ -353,18 +411,61 @@ namespace TickTackTo
                         }
                     });
                     break;
-                case "player_left":
-                    Console.WriteLine("Der andere Spieler hat das Spiel verlassen.");
+                case "reset":
                     Dispatcher.Invoke(() => {
+                        ResetBoard();
+                        HideEndGameOptions();
+                        DisableSettings();
+                    });
+                    break;
+                case "player_left":
+                    Dispatcher.Invoke(() => {
+                        gamerunning = false;
                         MessageBox.Show("Der andere Spieler hat das Spiel verlassen.");
                         ResetBoard();
                     });
                     break;
                 case "error":
-                    Console.WriteLine("Fehler: "+(string)data.message);
+                    gamerunning = false;
                     Dispatcher.Invoke(() => MessageBox.Show((string)data.message));
+                    ResetBoard();
                     break;
             }
+        }
+
+        private void ShowEndGameOptions()
+        {
+            ResetGameButton.Visibility = Visibility.Visible;
+            NewGameButton.Visibility = Visibility.Visible;
+            ResetUI();
+            EnableSettings();
+        }
+
+        private void DisableSettings()
+        {
+            LocalMultiplayerOption.IsEnabled = false;
+            OnlineMultiplayerOption.IsEnabled = false;
+            SingleplayerOption.IsEnabled = false;
+            DifficultyLevelComboBox.IsEnabled = false;
+        }
+
+        private void EnableSettings()
+        {
+            LocalMultiplayerOption.IsEnabled = true;
+            OnlineMultiplayerOption.IsEnabled = true;
+            SingleplayerOption.IsEnabled = true;
+            DifficultyLevelComboBox.IsEnabled = true;
+        }
+
+        private void HideEndGameOptions()
+        {
+            ResetGameButton.Visibility = Visibility.Collapsed;
+            NewGameButton.Visibility = Visibility.Collapsed;
+        }
+
+        private void ResetUI()
+        {
+            CurrentPlayerText.Text = string.Empty;
         }
     }
 }
