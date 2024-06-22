@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TickTackTo"
         mc:Ignorable="d"
-        Title="Tic Tac Toe"  Height="555" Width="800">
+        Title="Tic Tac Toe"  Height="648" Width="853">
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="2*" />
@@ -51,7 +51,7 @@
             <RadioButton x:Name="SingleplayerOption" Content="Singleplayer" Checked="Mode_Checked" Margin="5"/>
 
             <TextBlock x:Name="DificultyText" Text="Schwierigkeitsstufe:" FontSize="16" Margin="5"/>
-            <ComboBox x:Name="DifficultyLevelComboBox" SelectionChanged="DifficultyLevel_SelectionChanged" Width="150" Margin="5">
+            <ComboBox x:Name="DifficultyLevelComboBox" SelectionChanged="DifficultyLevel_SelectionChanged" Width="249" Margin="5">
                 <ComboBoxItem Content="Einfach" Tag="{x:Static local:DifficultyLevel.Einfach}"/>
                 <ComboBoxItem Content="Anspruchsvoll" Tag="{x:Static local:DifficultyLevel.Anspruchsvoll}"/>
                 <ComboBoxItem Content="Schwer" Tag="{x:Static local:DifficultyLevel.Schwer}"/>
@@ -64,6 +64,19 @@
             <Button Content="Neue Runde" Click="ResetGame_Click" Margin="5" Visibility="Collapsed" Name="ResetGameButton"/>
             <Button Content="Spiel verlassen und Neu erstellen" Click="NewGame_Click" Margin="5" Visibility="Collapsed" Name="NewGameButton"/>
             <TextBlock Name="PlayerSymbolText" FontSize="16" Margin="5" Visibility="Collapsed"/>
+        </StackPanel>
+        <StackPanel Grid.Column="1" Grid.Row="3" Margin="10">
+            <TextBlock Name="UsernameText" Text="Benutzername:" FontSize="16" Margin="5"/>
+            <TextBox Name="UsernameTextBox" Width="150" Margin="5"/>
+            <TextBlock Name="PasswordText" Text="Passwort:" FontSize="16" Margin="5"/>
+            <PasswordBox Name="PasswordBox" Width="150" Margin="5"/>
+            <Button Name="RegisterButton" Content="Registrieren" Click="Register_Click" Margin="5"/>
+            <Button Name="LoginButton" Content="Anmelden" Click="Login_Click" Margin="5"/>
+
+            <TextBlock Name="LoggedInUserText" FontSize="16" Margin="5" Visibility="Collapsed"/>
+            <Button Name="AccountSettingsButton" Content="Account Settings" Click="AccountSettings_Click" Margin="5" Visibility="Collapsed"/>
+            <Button Name="StatsButton" Content="Stats" Click="Stats_Click" Margin="5" Visibility="Collapsed"/>
+            <Button Name="LogoutButton" Content="Logout" Click="Logout_Click" Margin="5" Visibility="Collapsed"/>
         </StackPanel>
     </Grid>
 </Window>
