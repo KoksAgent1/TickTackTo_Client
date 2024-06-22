@@ -35,7 +35,7 @@ namespace TickTackTo
         private WebSocket webSocket;
         private string prodconnection = "ws://91.107.203.9:2000";
         private string localconnection = "ws://localhost:2000";
-        private bool isdev = true;
+        private bool isdev = false;
 
         //Game States
         private bool isXNext = true;
